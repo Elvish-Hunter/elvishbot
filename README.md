@@ -20,11 +20,12 @@ How do I install it?
 
 First of all, you'll need a copy of WeeChat (I used the 1.4 version).
 
-If you're on Linux, be careful about using the version available in your package manager: given WeeChat's rapid development cycle, your version may very well be outdated, so you should open their website and install the latest stable version from there. They also have a repository for Ubuntu and Debian users. If you compile WeeChat on your own, please note that the script works on Python 2, and it *should* work on Python 3 by removing the `from __future__ import division` line.
+If you're on Linux, be careful about using the version available in your package manager: given WeeChat's rapid development cycle, your version may very well be outdated, so you should open their website and install the latest stable version from there. They also have a repository for Ubuntu and Debian users.  
+If you compile WeeChat on your own, please note that the script works on Python 2, and it *should* work on Python 3 by removing the `from __future__ import division` line.
 
-If you're on Windows, you'll have to install [Cygwin](https://www.cygwin.com/) and choose at least the `weechat-1.4-1` and `weechat-python-1.4-1` packages, as well as a Python version (like the `python-2.7.10-1` package).
-
+If you're on Windows, you'll have to install [Cygwin](https://www.cygwin.com/) and choose at least the `weechat-1.4-1` and `weechat-python-1.4-1` packages, as well as a Python version (like the `python-2.7.10-1` package).  
 **WARNING:** *you must install Python 2 from within Cygwin.* A normal Windows installation of Python won't work with WeeChat.
+
 After you installed your copy of WeeChat, start it with the command
 
 	weechat -d ~/.elvishbot
