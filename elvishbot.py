@@ -62,6 +62,7 @@ def _help(nick):
 /NOTICE {0} about: infos about me
 /NOTICE {0} coin: tosses a coin
 /NOTICE {0} server: prints the address of the Italian server
+/NOTICE {0} coffee: makes a cup of coffee, duh!
 /NOTICE {0} dice <n>: throws a n-sided dice, if n is not supplied throws a six-sided dice
 /NOTICE {0} rps <choice>: plays a game of rock, paper, scissors (replace <choice> with one of them)
 /NOTICE {0} This bot can also handle two lists (each of them can contain up to 99 items), called 'A' and 'B'. These are the related commands:
@@ -324,6 +325,9 @@ def _list(target, nick, command):
     else:
         return "Missing or invalid arguments for list command"
 
+def _coffee():
+    return "c[_]"
+
 # signal handlers
 # each of them must have the data, signal, signal_data arguments
 # and must be hooked to a WeeChat signal
@@ -373,6 +377,8 @@ def handle_query(data, signal, signal_data):
                 out_msg = _rps(user, args)
             elif command == "list":
                 out_msg = _list(target,user,args)
+            elif command == "coffee":
+                out_msg = _coffee()
             else:
                 out_msg = "Unrecognized command. Type '{0}: help' to get a list of commands".format(current_nick)
 
