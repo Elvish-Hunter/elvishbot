@@ -328,6 +328,42 @@ def _list(target, nick, command):
 def _coffee():
     return "c[_]"
 
+def _8ball():
+    # answers are taken from the Atheme project, which is released as open source
+    # https://github.com/atheme/atheme
+    # another set of answers is available here: https://en.wikipedia.org/wiki/Magic_8-Ball
+    answers = (
+        "Absolutely yes!",
+        "Prospect looks hopeful.",
+        "I'd like to think so.",
+        "Yes, yes, yes, and yes again.",
+        "Most likely.",
+        "All signs point to yes.",
+        "Yes.",
+        "Without a doubt.",
+        "Sometime in the near future.",
+        "Of course!",
+        "Definitely.",
+        "Answer hazy.",
+        "Prospect looks bleak.",
+        "That's a question you should ask yourself.",
+        "Maybe.",
+        "That question is better remained unanswered.",
+        "The stars would have to align for that to happen.",
+        "No.",
+        "Not even on a GOOD day.",
+        "It would take a disturbed person to even ask.",
+        "You wish.",
+        "Not bloody likely.",
+        "No way.",
+        "Never.",
+        "NO!",
+        "Over my dead body.",
+        "We won't go there",
+        "No chance at all!"
+        )
+    return random.choice(answers)
+
 # signal handlers
 # each of them must have the data, signal, signal_data arguments
 # and must be hooked to a WeeChat signal
@@ -379,6 +415,8 @@ def handle_query(data, signal, signal_data):
                 out_msg = _list(target,user,args)
             elif command == "coffee":
                 out_msg = _coffee()
+            elif command == "eightball":
+                out_msg = _8ball()
             else:
                 out_msg = "Unrecognized command. Type '{0}: help' to get a list of commands".format(current_nick)
 
