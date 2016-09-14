@@ -5,6 +5,10 @@ from __future__ import division
     
 import random
 import sys
+import zlib
+import struct
+import socket
+import re
 
 try:
     import weechat
@@ -66,6 +70,7 @@ def _help(nick):
 /NOTICE {0} server: prints the address of the Italian server and checks its status (updated to the last 5 minutes)
 /NOTICE {0} coffee: makes a cup of coffee, duh!
 /NOTICE {0} dice <n>: throws a n-sided dice, if n is not supplied throws a six-sided dice
+/NOTICE {0} eightball: shakes the magic 8 ball and gives you an answer to your questions!
 /NOTICE {0} rps <choice>: plays a game of rock, paper, scissors (replace <choice> with one of them)
 /NOTICE {0} This bot can also handle two lists (each of them can contain up to 99 items), called 'A' and 'B'. These are the related commands:
 /NOTICE {0} list clear <optional list>: deletes the content of the supplied list; if no list is specified, deletes the content of both lists
@@ -128,7 +133,7 @@ def _server():
             sock.close()
             # check if the server answered in gzipped WML
             if re.match(br'\[(version|mustlogin)\]\n\[/\1\]\n',
-                        gzip.decompress(answer)):
+                        zlib.decompress(answer, 16+zlib.MAX_WBITS)):
                 cached_server_result = True
             else:
                 cached_server_result = False
