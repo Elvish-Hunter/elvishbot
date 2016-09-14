@@ -45,6 +45,8 @@ class BufferInfos(object):
         self.clear_list_b()
 
 buffer_data = {}
+server_status_allowed = True
+cached_server_result = False
 A, B = "A", "B"
 
 # command handlers
@@ -61,7 +63,7 @@ def _help(nick):
 /NOTICE {0} help: shows this message
 /NOTICE {0} about: infos about me
 /NOTICE {0} coin: tosses a coin
-/NOTICE {0} server: prints the address of the Italian server
+/NOTICE {0} server: prints the address of the Italian server and checks its status (updated to the last 5 minutes)
 /NOTICE {0} coffee: makes a cup of coffee, duh!
 /NOTICE {0} dice <n>: throws a n-sided dice, if n is not supplied throws a six-sided dice
 /NOTICE {0} rps <choice>: plays a game of rock, paper, scissors (replace <choice> with one of them)
@@ -92,8 +94,52 @@ def _dice(arg):
             return "Invalid argument, it must be an integer number between 2 and 1000"
         return str(random.randint(1,limit))
 
+def _allow_server_check(data, remaining_calls):
+    global server_status_allowed
+    server_status_allowed = True
+
+    return weechat.WEECHAT_RC_OK
+
 def _server():
-    return "The Italian Wesnoth MP server is: laltromondo.mooo.com:15000"
+    global server_status_allowed
+    global cached_server_result
+
+    if server_status_allowed:
+        # allow running the command at most every 5 minutes
+        # otherwise rely on the cached result
+        server_status_allowed = False
+        weechat.hook_timer(5 * 60 * 1000, 60, 1, "_allow_server_check", "")
+
+        # this is an extremely condensed version of the Valen script
+        # https://github.com/shikadilord/valen/blob/master/bin/valen.pl
+        try:
+            # format:
+            # first 4 bytes are connection ID
+            # second 4 bytes are the length of the following packet
+            # eveything else is the gzipped packet itself
+            sock = socket.create_connection(("laltromondo.mooo.com", 15000), 10)
+            # handshake
+            sock.send(struct.pack(">I", 0))
+            # discard connection number
+            sock.recv(4)
+            # check the actual packet's length
+            packet_length = struct.unpack(">I", sock.recv(4))[0]
+            answer = sock.recv(packet_length)
+            sock.close()
+            # check if the server answered in gzipped WML
+            if re.match(br'\[(version|mustlogin)\]\n\[/\1\]\n',
+                        gzip.decompress(answer)):
+                cached_server_result = True
+            else:
+                cached_server_result = False
+        except (IOError, OSError): # raised both on connection issues and gzip problems
+            cached_server_result = False
+
+    # these are mIRC color codes; green when the server is active, red otherwise
+    # a good reference is available here: https://github.com/myano/jenni/wiki/IRC-String-Formatting
+    res = "\x02\x0303ONLINE\x0f" if cached_server_result else "\x0304OFFLINE\x0f"
+
+    return "The Italian Wesnoth MP server is: laltromondo.mooo.com:15000 | Current status: " + res
 
 def _about():
     return "elvishbot {0} - a GPL v3 IRC bot based on WeeChat - by Elvish_Hunter, 2016".format(VERSION)
