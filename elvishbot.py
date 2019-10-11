@@ -7,6 +7,13 @@ import zlib
 import struct
 import socket
 import re
+import os
+import sqlite3
+import time
+
+# this is needed to force time.strftime to return days and months in English
+import locale
+locale.setlocale(locale.LC_TIME, "C")
 
 try:
     import weechat
@@ -23,6 +30,18 @@ weechat.register("elvishbot", # name
                  "A IRC bot based on WeeChat, useful for organizing the Wesnoth Italian Forum's tournaments", # description
                  "", # shutdown function
                  "utf8") # charset
+
+# check if the "seen" database exists, and create it *right now* if it doesn't
+# SQLite doesn't impose any specific extension, the one used here is just to make the file easier to find
+db_location = os.path.join(weechat.info_get("weechat_dir", ""), "seen.sqlite")
+weechat.prnt("", f"The seen DB location is: {db_location}")
+if not os.path.isfile(db_location):
+    weechat.prnt("", "WARNING: the database doesn't exist yet, creating it now")
+conn = sqlite3.connect(db_location)
+# initialize the seen DB
+cursor = conn.cursor()
+cursor.execute("CREATE TABLE IF NOT EXISTS seen (network TEXT, channel TEXT, nick TEXT, timestamp INTEGER, event TEXT)")
+conn.commit()
 
 # custom data types, global variables and constants
 
@@ -70,6 +89,7 @@ def _help(nick):
 /NOTICE {0} dice <n>: throws a n-sided dice, if n is not supplied throws a six-sided dice
 /NOTICE {0} eightball: shakes the magic 8 ball and gives you an answer to your questions!
 /NOTICE {0} rps <choice>: plays a game of rock, paper, scissors (replace <choice> with one of them)
+/NOTICE {0} seen <nick>: checks when a nick last sent a message in the channel
 /NOTICE {0} This bot can also handle two lists (each of them can contain up to 99 items), called 'A' and 'B'. These are the related commands:
 /NOTICE {0} list clear <optional list>: deletes the content of the supplied list; if no list is specified, deletes the content of both lists
 /NOTICE {0} list show: shows the content of both lists, assigning an index to each element
@@ -413,12 +433,50 @@ def _8ball():
         )
     return random.choice(answers)
 
+def _seen(server, channel, args):
+    global cursor
+    if not args or args.isspace():
+        return "Missing nick for seen command"
+    args = args.strip()
+    cursor.execute("SELECT timestamp FROM seen WHERE network=? AND channel=? AND nick=?", (server, channel, args))
+    result = cursor.fetchall()
+    # cursor.fetchall() returns an empty list if no matching results are found
+    # or a list of tuples with all the matching rows
+    # we're going to pick only the first tuple and discard the rest
+    # also, issue a warning if there are two matches, somehow
+    if not result:
+        return "I haven't seen {} in this channel so far".format(args)
+    else:
+        if len(result) > 1:
+            weechat.prnt("", "WARNING: more than one row in the seen DB matched query with network: {}, channel: {}, nick: {}".format(server, channel, args))
+        # we pick the first row
+        row = result[0]
+        # due to our query, every matching tuple has only one value, the timestamp
+        # use of localtime is to take in account DST and timezones
+        readable_time = time.strftime("%A, %d %B %Y %H:%M:%S", time.localtime(row[0]))
+        # difference between now and last message
+        delta = int(time.time()) - row[0]
+        delta_days, rest = divmod(delta, (24 * 60 * 60))
+        delta_hours, rest = divmod(rest, (60 * 60))
+        delta_minutes, delta_seconds = divmod(rest, 60)
+        readable_delta = []
+        if delta_days > 0:
+            readable_delta.append(f"{delta_days}d")
+        if delta_hours > 0:
+            readable_delta.append(f"{delta_hours}h")
+        if delta_minutes > 0:
+            readable_delta.append(f"{delta_minutes}m")
+        readable_delta.append(f"{delta_seconds}s")
+        return "{} last spoke in this channel on {} ({} ago)".format(args, readable_time, ' '.join(readable_delta))
+
 # signal handlers
 # each of them must have the data, signal, signal_data arguments
 # and must be hooked to a WeeChat signal
 
 def handle_query(data, signal, signal_data):
     global buffer_data
+    global cursor # for seen DB
+    global conn # for seen DB
     # data: empty string
     # signal: <server>,irc_in_PRIVMSG
     # signal_data: whole message unparsed
@@ -442,6 +500,12 @@ def handle_query(data, signal, signal_data):
             weechat.buffer_close(buffer_out)
     else:
         # query came from public channel
+        # first of all, push the relevant datas into the seen DB
+        # the question marks are used to build a parametrized query and prevent SQL injection
+        # DELETE doesn't have limits because there might be more than one message matching
+        cursor.execute("DELETE FROM seen WHERE network=? AND channel=? AND nick=?", (server, channel, user))
+        cursor.execute("INSERT INTO seen VALUES (?, ?, ?, ?, ?)", (server, channel, user, int(time.time()), "PRIVMSG"))
+        conn.commit()
         if message.startswith(current_nick + ":"): # it's a command to our bot
             query = message.split(":")[1].strip() # remove the part before the colon, and lead/trail whitespaces
             s = query.split(" ", 1)
@@ -466,6 +530,8 @@ def handle_query(data, signal, signal_data):
                 out_msg = _coffee()
             elif command == "eightball":
                 out_msg = _8ball()
+            elif command == "seen":
+                out_msg = _seen(server, channel, args)
             else:
                 out_msg = "Unrecognized command. Type '{0}: help' to get a list of commands".format(current_nick)
 
@@ -515,9 +581,17 @@ def on_kick(data, signal, signal_data):
             weechat.prnt("","No buffer data for {0},{1}, skipping".format(server, channel))
     return weechat.WEECHAT_RC_OK
 
+def on_self_quit(data, signal, signal_data):
+    global conn
+    conn.close()
+    return weechat.WEECHAT_RC_OK
+
 # signal hooks
 # the in2 part avoids the answer appearing before the query in the weechat instance
 weechat.hook_signal("*,irc_in2_privmsg","handle_query","")
+# /me commands become " ACTION <message> " privmsg messages (the leading and trailing spaces are actually ASCII 0x01 chars)
 weechat.hook_signal("*,irc_in2_join","on_join","")
 weechat.hook_signal("*,irc_in2_part","on_part","")
 weechat.hook_signal("*,irc_in2_kick","on_kick","")
+# other possibly useful signals: irc_in2_notice, irc_in2_nick, irc_in2_quit
+weechat.hook_signal("*,quit","on_self_quit","")
