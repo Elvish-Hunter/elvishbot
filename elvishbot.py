@@ -1,7 +1,5 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # coding: utf8
-
-from __future__ import division
     
 import random
 import sys
@@ -13,7 +11,7 @@ import re
 try:
     import weechat
 except ImportError:
-    print "This script must be run from within the WeeChat IRC client"
+    print("This script must be run from within the WeeChat IRC client")
     sys.exit(1)
 
 VERSION = "1.0.0"
