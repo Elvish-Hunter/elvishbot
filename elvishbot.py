@@ -34,7 +34,7 @@ weechat.register("elvishbot", # name
 # check if the "seen" database exists, and create it *right now* if it doesn't
 # SQLite doesn't impose any specific extension, the one used here is just to make the file easier to find
 db_location = os.path.join(weechat.info_get("weechat_dir", ""), "seen.sqlite")
-weechat.prnt("", f"The seen DB location is: {db_location}")
+weechat.prnt("", "The seen DB location is: {}".format(db_location))
 if not os.path.isfile(db_location):
     weechat.prnt("", "WARNING: the database doesn't exist yet, creating it now")
 conn = sqlite3.connect(db_location)
@@ -433,11 +433,13 @@ def _8ball():
         )
     return random.choice(answers)
 
-def _seen(server, channel, args):
+def _seen(server, channel, bot_nick, args):
     global cursor
     if not args or args.isspace():
         return "Missing nick for seen command"
     args = args.strip()
+    if args == bot_nick:
+        return "Wait, why are you asking me if I've seen *myself*?"
     cursor.execute("SELECT timestamp FROM seen WHERE network=? AND channel=? AND nick=?", (server, channel, args))
     result = cursor.fetchall()
     # cursor.fetchall() returns an empty list if no matching results are found
@@ -461,12 +463,12 @@ def _seen(server, channel, args):
         delta_minutes, delta_seconds = divmod(rest, 60)
         readable_delta = []
         if delta_days > 0:
-            readable_delta.append(f"{delta_days}d")
+            readable_delta.append("{}d".format(delta_days))
         if delta_hours > 0:
-            readable_delta.append(f"{delta_hours}h")
+            readable_delta.append("{}h".format(delta_hours))
         if delta_minutes > 0:
-            readable_delta.append(f"{delta_minutes}m")
-        readable_delta.append(f"{delta_seconds}s")
+            readable_delta.append("{}m".format(delta_minutes))
+        readable_delta.append("{}s".format(delta_seconds))
         return "{} last spoke in this channel on {} ({} ago)".format(args, readable_time, ' '.join(readable_delta))
 
 # signal handlers
@@ -531,7 +533,7 @@ def handle_query(data, signal, signal_data):
             elif command == "eightball":
                 out_msg = _8ball()
             elif command == "seen":
-                out_msg = _seen(server, channel, args)
+                out_msg = _seen(server, channel, current_nick, args)
             else:
                 out_msg = "Unrecognized command. Type '{0}: help' to get a list of commands".format(current_nick)
 
