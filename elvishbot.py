@@ -440,7 +440,7 @@ def _seen(server, channel, bot_nick, args):
     args = args.strip()
     if args == bot_nick:
         return "Wait, why are you asking me if I've seen *myself*?"
-    cursor.execute("SELECT timestamp FROM seen WHERE network=? AND channel=? AND nick=?", (server, channel, args))
+    cursor.execute("SELECT timestamp FROM seen WHERE network=? AND channel=? AND nick=?", (server, channel, args.lower()))
     result = cursor.fetchall()
     # cursor.fetchall() returns an empty list if no matching results are found
     # or a list of tuples with all the matching rows
@@ -505,8 +505,8 @@ def handle_query(data, signal, signal_data):
         # first of all, push the relevant datas into the seen DB
         # the question marks are used to build a parametrized query and prevent SQL injection
         # DELETE doesn't have limits because there might be more than one message matching
-        cursor.execute("DELETE FROM seen WHERE network=? AND channel=? AND nick=?", (server, channel, user))
-        cursor.execute("INSERT INTO seen VALUES (?, ?, ?, ?, ?)", (server, channel, user, int(time.time()), "PRIVMSG"))
+        cursor.execute("DELETE FROM seen WHERE network=? AND channel=? AND nick=?", (server, channel, user.lower()))
+        cursor.execute("INSERT INTO seen VALUES (?, ?, ?, ?, ?)", (server, channel, user.lower(), int(time.time()), "PRIVMSG"))
         conn.commit()
         if message.startswith(current_nick + ":"): # it's a command to our bot
             query = message.split(":")[1].strip() # remove the part before the colon, and lead/trail whitespaces
